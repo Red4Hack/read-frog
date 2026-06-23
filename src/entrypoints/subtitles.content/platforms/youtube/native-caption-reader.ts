@@ -3,6 +3,7 @@ import type { SubtitleColorSegment } from "@/utils/subtitles/types"
 const CAPTION_VISUAL_LINE_SELECTOR = ".caption-visual-line"
 const CAPTION_SEGMENT_SELECTOR = ".ytp-caption-segment"
 const WHITESPACE_PATTERN = /\s+/g
+const POLL_INTERVAL_MS = 300
 
 export interface NativeCaptionCue {
   /** Plain concatenated text of the cue (translation input). */
@@ -26,6 +27,7 @@ export class YoutubeNativeCaptionReader {
   private container: HTMLElement | null = null
   private containerObserver: MutationObserver | null = null
   private rootObserver: MutationObserver | null = null
+  private pollIntervalId: ReturnType<typeof setInterval> | null = null
   private lastText = ""
 
   constructor(
@@ -49,6 +51,15 @@ export class YoutubeNativeCaptionReader {
       this.rootObserver = new MutationObserver(() => this.attachToContainer())
       this.rootObserver.observe(player, { childList: true, subtree: true })
     }
+
+    // Polling safety net: MutationObservers can miss caption updates (attached
+    // late, or YouTube updates via a path that doesn't mutate observed nodes).
+    // Re-checking the on-screen text on a short interval (deduped) guarantees we
+    // always pick up whatever the player is currently showing.
+    this.pollIntervalId = setInterval(() => {
+      this.attachToContainer()
+      this.readCue()
+    }, POLL_INTERVAL_MS)
   }
 
   stop() {
@@ -57,6 +68,10 @@ export class YoutubeNativeCaptionReader {
     this.containerObserver = null
     this.rootObserver?.disconnect()
     this.rootObserver = null
+    if (this.pollIntervalId !== null) {
+      clearInterval(this.pollIntervalId)
+      this.pollIntervalId = null
+    }
     this.container = null
     this.lastText = ""
   }
