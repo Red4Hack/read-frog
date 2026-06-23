@@ -6,6 +6,7 @@ import type { SubtitlesFragment } from "@/utils/subtitles/types"
 import { toast } from "sonner"
 import { ANALYTICS_FEATURE, ANALYTICS_SURFACE } from "@/types/analytics"
 import { createFeatureUsageContext, trackFeatureUsed } from "@/utils/analytics"
+import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { getProviderConfigById } from "@/utils/config/helpers"
 import { getLocalConfig } from "@/utils/config/storage"
 import {
@@ -30,6 +31,7 @@ import {
   subtitlesSettingsPanelViewAtom,
   subtitlesStore,
 } from "./atoms"
+import { NativeLiveController } from "./native-live-controller"
 import { renderSubtitlesTranslateButton } from "./renderer/render-translate-button"
 import { SegmentationPipeline } from "./segmentation-pipeline"
 import { SubtitlesScheduler } from "./subtitles-scheduler"
@@ -55,11 +57,19 @@ export class UniversalVideoAdapter {
   private sessionProcessedFragments: SubtitlesFragment[] = []
   private sessionVideoId: string | null = null
 
-  private isNativeSubtitlesHidden = false
+  private nativeHideMode: "none" | "remove" | "transparent" | "bottom" = "none"
   private segmentationPipeline: SegmentationPipeline | null = null
   private translationCoordinator: TranslationCoordinator | null = null
   private translatedSubtitlesDownloader: TranslatedSubtitlesDownloader | null = null
   private subtitlesSummaryContextHash: string | null = null
+
+  // Live fallback that reads YouTube's natively-rendered captions when the
+  // timedtext API path cannot produce a transcript.
+  private nativeLiveController: NativeLiveController | null = null
+  // Whether we programmatically enabled the native CC button (to restore it).
+  private nativeCaptionsForcedOn = false
+  // Suppress the CC-state sync while we toggle the CC button ourselves.
+  private suppressCaptionSync = false
 
   get embedded() {
     return this.config.embedded
@@ -103,6 +113,10 @@ export class UniversalVideoAdapter {
     this.toggleSubtitlesWithSource(enabled, "manual")
   }
 
+  isTranslationActive(): boolean {
+    return this.subtitlesScheduler?.isActive() ?? false
+  }
+
   async handleSourceTrackChanged(): Promise<void> {
     if (!this.trackChangeRefreshPromise) {
       this.trackChangeRefreshPromise = this.refreshSourceTrackIfNeeded().finally(() => {
@@ -114,18 +128,36 @@ export class UniversalVideoAdapter {
   }
 
   downloadSourceSubtitles = async () => {
-    await this.getOrLoadSourceSubtitles()
+    this.suppressCaptionSync = true
+    try {
+      await this.getOrLoadSourceSubtitles()
 
-    await downloadSubtitlesAsSrt({
-      subtitles: this.sourceProcessedSubtitles,
-      pageTitle: document.title || "",
-      videoId: this.config.getVideoId?.(),
-    })
+      await downloadSubtitlesAsSrt({
+        subtitles: this.sourceProcessedSubtitles,
+        pageTitle: document.title || "",
+        videoId: this.config.getVideoId?.(),
+      })
+    }
+    finally {
+      // Releasing on the next tick covers the async aria-pressed mutation that
+      // may fire when fetching enables the native CC button.
+      setTimeout(() => {
+        this.suppressCaptionSync = false
+      }, 300)
+    }
   }
 
   downloadTranslatedSubtitles = async () => {
     this.initializeTranslatedSubtitlesDownloader()
-    await this.translatedSubtitlesDownloader!.download()
+    this.suppressCaptionSync = true
+    try {
+      await this.translatedSubtitlesDownloader!.download()
+    }
+    finally {
+      setTimeout(() => {
+        this.suppressCaptionSync = false
+      }, 300)
+    }
   }
 
   private initializeTranslatedSubtitlesDownloader() {
@@ -220,6 +252,7 @@ export class UniversalVideoAdapter {
   private clearRuntimeSession() {
     this.translationCoordinator?.stop()
     this.segmentationPipeline?.stop()
+    this.stopNativeLive()
     this.translationCoordinator = null
     this.segmentationPipeline = null
     this.sessionSubtitles = []
@@ -234,6 +267,7 @@ export class UniversalVideoAdapter {
     this.destroyScheduler()
     this.translationCoordinator?.stop()
     this.segmentationPipeline?.stop()
+    this.stopNativeLive()
     subtitlesStore.set(subtitlesSettingsPanelOpenAtom, false)
     subtitlesStore.set(subtitlesSettingsPanelViewAtom, ROOT_VIEW)
     this.showNativeSubtitles()
@@ -333,6 +367,15 @@ export class UniversalVideoAdapter {
 
     if (!autoStart) return
 
+    // Respect YouTube's CC: when auto-enabling, only start if the user has the
+    // native captions turned on. If CC is off, don't force translation on (and
+    // don't block YouTube's own captions) — the CC-button sync will start it
+    // when the user enables captions.
+    const ccButton = this.getNativeCaptionsButton()
+    if (ccButton && ccButton.getAttribute("aria-pressed") !== "true") {
+      return
+    }
+
     if (this.config.embedded) {
       const video = this.subtitlesScheduler?.getVideoElement()
       if (!video) return
@@ -371,12 +414,159 @@ export class UniversalVideoAdapter {
     if (enabled) {
       this.subtitlesScheduler?.start()
       this.subtitlesScheduler?.show()
-      this.hideNativeSubtitles()
+      if (this.shouldKeepNativeCaptions()) {
+        // Keep custom/positioned (e.g. top, colored) captions visible and only
+        // overlay the translation; hide just the default bottom captions to avoid
+        // overlap. Applied here (not only in startTranslation) so it survives the
+        // resume path when re-enabling via the CC button. The passthrough case in
+        // startTranslation restores full visibility when there's nothing to add.
+        this.enableNativeCaptionsForReading()
+        this.hideNativeSubtitles("bottom")
+      }
+      else {
+        this.hideNativeSubtitles()
+      }
       void this.startTranslation(analyticsContext)
     } else {
       this.subtitlesScheduler?.hide()
-      this.showNativeSubtitles()
       this.translationCoordinator?.stop()
+      this.stopNativeLive()
+      this.showNativeSubtitles()
+    }
+  }
+
+  private getVideoSubtitlesMode(): "auto" | "keepOriginal" | "translate" {
+    try {
+      return subtitlesStore.get(configFieldsAtomMap.videoSubtitles).mode
+    }
+    catch {
+      return "auto"
+    }
+  }
+
+  private shouldKeepNativeCaptions(): boolean {
+    return this.getVideoSubtitlesMode() === "keepOriginal"
+  }
+
+  /**
+   * Sync handler for the native YouTube CC button. Turning captions on/off in
+   * the player toggles the Read Frog translation to match.
+   */
+  handleNativeCaptionsToggled = (pressed: boolean) => {
+    if (this.suppressCaptionSync) {
+      return
+    }
+    const isOn = this.subtitlesScheduler?.isActive() ?? false
+    if (pressed === isOn) {
+      return
+    }
+    this.toggleSubtitlesWithSource(pressed, "manual")
+  }
+
+  private getNativeCaptionsButton(): HTMLElement | null {
+    const selector = this.config.selectors.nativeCaptionsButton
+    if (!selector) {
+      return null
+    }
+    const player = document.querySelector(this.config.selectors.playerContainer)
+    return player?.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>(selector)
+  }
+
+  private enableNativeCaptionsForReading() {
+    const button = this.getNativeCaptionsButton()
+    if (!button || button.getAttribute("aria-pressed") === "true") {
+      return
+    }
+    this.suppressCaptionSync = true
+    button.click()
+    this.nativeCaptionsForcedOn = true
+    setTimeout(() => {
+      this.suppressCaptionSync = false
+    }, 300)
+  }
+
+  private restoreNativeCaptionsState() {
+    if (!this.nativeCaptionsForcedOn) {
+      return
+    }
+    this.nativeCaptionsForcedOn = false
+    const button = this.getNativeCaptionsButton()
+    if (button?.getAttribute("aria-pressed") === "true") {
+      this.suppressCaptionSync = true
+      button.click()
+      setTimeout(() => {
+        this.suppressCaptionSync = false
+      }, 300)
+    }
+  }
+
+  /**
+   * Fallback used when the timedtext API path fails: read YouTube's natively
+   * rendered captions and translate them live. Returns true when started.
+   */
+  private async tryStartNativeLiveFallback(): Promise<boolean> {
+    const scheduler = this.subtitlesScheduler
+    if (!scheduler || !scheduler.isActive()) {
+      return false
+    }
+
+    const nativeSelector = this.config.selectors.nativeSubtitles
+    if (!nativeSelector) {
+      return false
+    }
+
+    // Make YouTube render captions so we can read them.
+    this.enableNativeCaptionsForReading()
+
+    const shouldTranslate = !(await this.shouldSkipTranslationForCurrentTrack())
+    const keepNative = this.shouldKeepNativeCaptions()
+
+    if (keepNative && !shouldTranslate) {
+      // Native already shows the target language: keep it fully visible and don't
+      // overlay a duplicate.
+      this.showNativeSubtitles()
+      this.stopNativeLive(false)
+      scheduler.reset()
+      scheduler.setState("idle")
+      return true
+    }
+
+    if (keepNative) {
+      // Keep custom/positioned captions visible; hide only default bottom ones.
+      this.hideNativeSubtitles("bottom")
+    }
+    else {
+      // Hide them visually but keep the DOM readable.
+      this.hideNativeSubtitles("transparent")
+    }
+
+    const videoContext: SubtitlesVideoContext = {
+      videoTitle: document.title || "",
+      videoDescription: getDocumentDescription(document),
+      subtitlesTextContent: "",
+    }
+
+    this.stopNativeLive(false)
+    scheduler.reset()
+    scheduler.setState("idle")
+
+    this.nativeLiveController = new NativeLiveController({
+      playerContainerSelector: this.config.selectors.playerContainer,
+      nativeSubtitlesSelector: nativeSelector,
+      videoContext,
+      shouldTranslate,
+    })
+    this.nativeLiveController.start()
+    return true
+  }
+
+  private stopNativeLive(restoreCaptions = true) {
+    if (this.nativeLiveController) {
+      this.nativeLiveController.stop()
+      this.nativeLiveController = null
+    }
+    if (restoreCaptions) {
+      this.restoreNativeCaptionsState()
     }
   }
 
@@ -401,41 +591,97 @@ export class UniversalVideoAdapter {
   }
 
   private showNativeSubtitles() {
-    if (!this.isNativeSubtitlesHidden) {
-      return
-    }
-
-    const style = document.getElementById(HIDE_NATIVE_CAPTIONS_STYLE_ID)
-    style?.remove()
-    this.isNativeSubtitlesHidden = false
+    // Always remove the style by id (defensive): never leave YouTube's native
+    // captions blocked, even if an orphaned hide style lingers from a prior state.
+    document.getElementById(HIDE_NATIVE_CAPTIONS_STYLE_ID)?.remove()
+    this.nativeHideMode = "none"
   }
 
-  private hideNativeSubtitles() {
-    if (this.isNativeSubtitlesHidden) {
+  /**
+   * Hide YouTube's native captions while our overlay is active.
+   * - "remove": fully removes them (used when we render our own subtitles from
+   *   the timedtext API).
+   * - "transparent": keeps them in the DOM but invisible, so the native caption
+   *   reader can still read their text (used in the live native fallback).
+   * - "bottom": hides only default bottom-anchored captions, leaving custom /
+   *   positioned (e.g. top, colored) captions in place ("keep native" mode).
+   */
+  private hideNativeSubtitles(mode: "remove" | "transparent" | "bottom" = "remove") {
+    if (this.nativeHideMode === mode) {
       return
     }
 
-    if (document.getElementById(HIDE_NATIVE_CAPTIONS_STYLE_ID)) {
-      this.isNativeSubtitlesHidden = true
-      return
+    let style = document.getElementById(HIDE_NATIVE_CAPTIONS_STYLE_ID) as HTMLStyleElement | null
+    if (!style) {
+      style = document.createElement("style")
+      style.id = HIDE_NATIVE_CAPTIONS_STYLE_ID
+      document.head.appendChild(style)
     }
 
-    const style = document.createElement("style")
-    style.id = HIDE_NATIVE_CAPTIONS_STYLE_ID
-    style.textContent = `
-      ${this.config.selectors.nativeSubtitles},
-      ${this.config.selectors.nativeSubtitles} * {
-        display: none !important;
-        opacity: 0 !important;
-        visibility: hidden !important;
-      }
-    `
-    document.head.appendChild(style)
-    this.isNativeSubtitlesHidden = true
+    const fullSelector = this.config.selectors.nativeSubtitlesHide ?? this.config.selectors.nativeSubtitles
+    const bottomSelector = this.config.selectors.nativeSubtitlesBottom
+
+    if (mode === "bottom" && bottomSelector) {
+      style.textContent = `
+        ${bottomSelector},
+        ${bottomSelector} * {
+          display: none !important;
+          opacity: 0 !important;
+          visibility: hidden !important;
+        }
+      `
+    }
+    else if (mode === "transparent") {
+      style.textContent = `
+        ${fullSelector},
+        ${fullSelector} * {
+          opacity: 0 !important;
+          pointer-events: none !important;
+        }
+      `
+    }
+    else {
+      style.textContent = `
+        ${fullSelector},
+        ${fullSelector} * {
+          display: none !important;
+          opacity: 0 !important;
+          visibility: hidden !important;
+        }
+      `
+    }
+    this.nativeHideMode = mode
+  }
+
+  private async shouldSkipForReadyTargetCaption(): Promise<boolean> {
+    // Only "auto" mode defers to an existing official caption. "keepOriginal" and
+    // "translate" always translate, so they never skip.
+    if (this.getVideoSubtitlesMode() !== "auto") {
+      return false
+    }
+    const config = await getLocalConfig()
+    const targetCode = config?.language?.targetCode
+    if (!targetCode) {
+      return false
+    }
+    return (await this.subtitlesFetcher.hasReadyTrackForLanguage?.(targetCode)) ?? false
   }
 
   private async startTranslation(analyticsContext?: FeatureUsageContext) {
     try {
+      // If the video already has a ready (human) caption in the user's language,
+      // optionally back off entirely and let them use YouTube's official caption.
+      if (await this.shouldSkipForReadyTargetCaption()) {
+        this.clearRuntimeSession()
+        this.subtitlesScheduler?.reset()
+        this.subtitlesScheduler?.setState("idle")
+        this.showNativeSubtitles()
+        if (analyticsContext) {
+          void trackFeatureUsed({ ...analyticsContext, outcome: "success" })
+        }
+        return
+      }
+
       const currentVideoId = this.config.getVideoId?.() ?? ""
       const hasCurrentSession =
         this.sessionProcessedFragments.length > 0 && this.sessionVideoId === currentVideoId
@@ -473,8 +719,19 @@ export class UniversalVideoAdapter {
       this.sessionSubtitles = this.sourceSubtitles
 
       if (await this.shouldSkipTranslationForCurrentTrack()) {
-        this.processPassthroughSubtitles()
-      } else {
+        // The selected track is already in the target language. When keeping the
+        // native captions in place, they already show it — don't duplicate it
+        // with an overlay, and restore full native visibility (undo the bottom
+        // hide applied on toggle). Otherwise (native hidden) show as passthrough.
+        if (this.shouldKeepNativeCaptions()) {
+          this.showNativeSubtitles()
+          this.subtitlesScheduler?.setState("idle")
+        }
+        else {
+          this.processPassthroughSubtitles()
+        }
+      }
+      else {
         await this.processTranslatedSubtitles()
       }
       if (analyticsContext) {
@@ -483,7 +740,27 @@ export class UniversalVideoAdapter {
           outcome: "success",
         })
       }
-    } catch (error) {
+    }
+    catch (error) {
+      // Hybrid fallback: if the timedtext API path failed, read YouTube's
+      // natively-rendered captions and translate them live instead of erroring.
+      const startedNativeLive = await this.tryStartNativeLiveFallback()
+      if (startedNativeLive) {
+        if (analyticsContext) {
+          void trackFeatureUsed({
+            ...analyticsContext,
+            outcome: "success",
+          })
+        }
+        return
+      }
+
+      // Translation could not be produced at all: never leave YouTube's own
+      // captions blocked — restore them (and any CC state we forced) so the user
+      // can still use the native (possibly custom/styled) captions.
+      this.showNativeSubtitles()
+      this.restoreNativeCaptionsState()
+
       if (analyticsContext) {
         void trackFeatureUsed({
           ...analyticsContext,
@@ -524,6 +801,13 @@ export class UniversalVideoAdapter {
   }
 
   private async processTranslatedSubtitles() {
+    // In "keep native" mode we render a translation overlay at the bottom, so
+    // hide only the default bottom-anchored native captions (to avoid overlap on
+    // normal videos) while leaving custom/positioned captions visible in place.
+    if (this.shouldKeepNativeCaptions()) {
+      this.hideNativeSubtitles("bottom")
+    }
+
     const scheduler = this.subtitlesScheduler
     if (!scheduler) return
 

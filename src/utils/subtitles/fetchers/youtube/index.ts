@@ -17,6 +17,7 @@ import {
   WAIT_TIMEDTEXT_REQUEST_TYPE,
   WAIT_TIMEDTEXT_RESPONSE_TYPE,
 } from "@/utils/constants/subtitles"
+import { resolveLanguageCodeFromLocale } from "@/utils/content/page-language"
 import { getRandomUUID } from "@/utils/crypto-polyfill"
 import { i18n } from "@/utils/i18n"
 import { OverlaySubtitlesError } from "@/utils/subtitles/errors"
@@ -30,12 +31,24 @@ import {
   parseStandardSubtitles,
   parseStylizedKaraokeSubtitles,
 } from "./parser"
+import { resolveSegmentColors } from "./parser/pen-styles"
 import { extractPotToken } from "./pot-token"
 import { youtubeSubtitlesResponseSchema } from "./types"
 import { buildSubtitleUrl } from "./url-builder"
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// YouTube manual (human-made) caption vssIds look like ".pt" or "1.pt"; auto
+// speech-recognition tracks are "a.pt". Auto-translated tracks aren't listed as
+// base captionTracks. We treat a track as "ready/human" only when it's clearly
+// manual, so auto-generated/translated captions still get our own translation.
+function isManualTrack(track: { kind?: string, vssId?: string }): boolean {
+  if (track.kind === "asr") {
+    return false
+  }
+  return /^\d*\./.test(track.vssId ?? "")
 }
 
 function postMessageRequest(responseType: string, message: Record<string, unknown>): Promise<any> {
@@ -131,6 +144,27 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
       response.data !== null &&
       response.data !== undefined &&
       response.data.captionTracks.length > 0
+    )
+  }
+
+  async hasReadyTrackForLanguage(targetCode: string): Promise<boolean> {
+    if (!targetCode) {
+      return false
+    }
+
+    const videoId = getYoutubeVideoId()
+    if (!videoId) {
+      return false
+    }
+
+    const response = await this.requestPlayerData(videoId)
+    if (!response.success || !response.data) {
+      return false
+    }
+
+    return response.data.captionTracks.some(track =>
+      isManualTrack(track)
+      && resolveLanguageCodeFromLocale(track.languageCode) === targetCode,
     )
   }
 
@@ -402,8 +436,11 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
           throw new Error("Invalid response format")
         }
 
-        return parsed.data.events
-      } catch (e) {
+        // Resolve per-segment colors from the pens table onto each segment so
+        // downstream parsers can preserve colored captions.
+        return resolveSegmentColors(parsed.data)
+      }
+      catch (e) {
         // Don't retry permanent errors (OverlaySubtitlesError)
         if (e instanceof OverlaySubtitlesError) {
           throw e

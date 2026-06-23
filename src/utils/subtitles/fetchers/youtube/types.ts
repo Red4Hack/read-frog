@@ -31,6 +31,10 @@ export interface PlayerData {
 export const youtubeTimedTextSegSchema = z.object({
   utf8: z.string(),
   tOffsetMs: z.number().optional(),
+  // References an entry in the top-level `pens` table (json3 styling).
+  pPenId: z.number().optional(),
+  // Resolved at runtime from the pens table (not present in the raw network response).
+  color: z.string().optional(),
 })
 
 export const youtubeTimedTextSchema = z.object({
@@ -42,8 +46,20 @@ export const youtubeTimedTextSchema = z.object({
   wWinId: z.number().optional(),
 })
 
+/**
+ * json3 "pen" style entry. Only color-related fields are modelled; everything
+ * else is ignored. Field names are best-effort (see pen-styles.ts).
+ */
+export const youtubeTimedTextPenSchema = z.object({
+  // Foreground color as a decimal RGB integer in some responses.
+  fcRgb: z.number().optional(),
+  // Foreground color as a string in other responses.
+  fc: z.string().optional(),
+}).passthrough()
+
 export const youtubeSubtitlesResponseSchema = z.object({
   events: z.array(youtubeTimedTextSchema),
+  pens: z.array(youtubeTimedTextPenSchema).optional(),
 })
 
 export const knownHttpErrorStatusSchema = z.union([
@@ -56,4 +72,5 @@ export const knownHttpErrorStatusSchema = z.union([
 // Export types from schemas
 export type YoutubeTimedTextSeg = z.infer<typeof youtubeTimedTextSegSchema>
 export type YoutubeTimedText = z.infer<typeof youtubeTimedTextSchema>
+export type YoutubeTimedTextPen = z.infer<typeof youtubeTimedTextPenSchema>
 export type YoutubeSubtitlesResponse = z.infer<typeof youtubeSubtitlesResponseSchema>

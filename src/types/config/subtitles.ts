@@ -17,6 +17,17 @@ export const subtitlesDisplayModeSchema = z.enum(["bilingual", "originalOnly", "
 export const subtitlesTranslationPositionSchema = z.enum(["above", "below"])
 export const subtitlesFontFamilySchema = z.enum(["system", "roboto", "noto-sans", "noto-serif"])
 
+/**
+ * How Read Frog handles a video's captions:
+ * - "auto": use the video's ready (human) caption in your language when it
+ *   exists; otherwise translate (replacing the native captions).
+ * - "keepOriginal": keep the original captions in place (position + color) and
+ *   show the translation below them (good for styled/positioned captions).
+ * - "translate": always translate and replace the native captions, even when an
+ *   official caption already exists.
+ */
+export const videoSubtitlesModeSchema = z.enum(["auto", "keepOriginal", "translate"])
+
 export const subtitleTextStyleSchema = z.object({
   fontFamily: subtitlesFontFamilySchema,
   fontScale: z.number().min(MIN_FONT_SCALE).max(MAX_FONT_SCALE),
@@ -44,6 +55,8 @@ export const subtitlePositionSchema = z.object({
 export const videoSubtitlesSchema = z.object({
   enabled: z.boolean(),
   autoStart: z.boolean(),
+  preserveCaptionColors: z.boolean(),
+  mode: videoSubtitlesModeSchema,
   providerId: z.string().nonempty(),
   style: subtitlesStyleSchema,
   aiSegmentation: z.boolean(),
@@ -54,6 +67,7 @@ export const videoSubtitlesSchema = z.object({
 })
 
 export type SubtitlesDisplayMode = z.infer<typeof subtitlesDisplayModeSchema>
+export type VideoSubtitlesMode = z.infer<typeof videoSubtitlesModeSchema>
 export type SubtitlesTranslationPosition = z.infer<typeof subtitlesTranslationPositionSchema>
 export type SubtitlesFontFamily = z.infer<typeof subtitlesFontFamilySchema>
 export type SubtitleTextStyle = z.infer<typeof subtitleTextStyleSchema>

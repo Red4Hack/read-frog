@@ -3,7 +3,7 @@ import type { StateData, SubtitlesFragment, SubtitlesState } from "@/utils/subti
 import { atom, createStore } from "jotai"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { DEFAULT_SUBTITLE_POSITION } from "@/utils/constants/subtitles"
-import { hasRenderableSubtitleByMode, isAwaitingTranslation } from "@/utils/subtitles/display-rules"
+import { getEffectiveDisplayMode, hasRenderableSubtitleByMode, isAwaitingTranslation } from "@/utils/subtitles/display-rules"
 import { ROOT_VIEW } from "./ui/subtitles-settings-panel/views"
 
 export const subtitlesStore = createStore()
@@ -61,8 +61,9 @@ export const subtitlesDisplayAtom = atom((get) => {
 
 export const subtitlesShowStateAtom = atom((get): Exclude<SubtitlesState, "idle"> | undefined => {
   const { subtitle, stateData } = get(subtitlesDisplayAtom)
-  const { style } = get(configFieldsAtomMap.videoSubtitles)
-  const hasRenderable = hasRenderableSubtitleByMode(subtitle, style.displayMode)
+  const { style, mode } = get(configFieldsAtomMap.videoSubtitles)
+  const displayMode = getEffectiveDisplayMode(style.displayMode, mode === "keepOriginal")
+  const hasRenderable = hasRenderableSubtitleByMode(subtitle, displayMode)
   const isError = stateData?.state === "error"
 
   if (isError) return "error"
@@ -72,11 +73,11 @@ export const subtitlesShowStateAtom = atom((get): Exclude<SubtitlesState, "idle"
 
 export const subtitlesShowContentAtom = atom((get): boolean => {
   const { subtitle, stateData, isVisible } = get(subtitlesDisplayAtom)
-  const { style } = get(configFieldsAtomMap.videoSubtitles)
+  const { style, mode } = get(configFieldsAtomMap.videoSubtitles)
 
   if (!isVisible) return false
 
   if (stateData?.state === "error") return false
 
-  return hasRenderableSubtitleByMode(subtitle, style.displayMode)
+  return hasRenderableSubtitleByMode(subtitle, getEffectiveDisplayMode(style.displayMode, mode === "keepOriginal"))
 })

@@ -32,6 +32,13 @@ export const YOUTUBE_SHORTS_PATH_PATTERN = /\/shorts\/[^/?]+/
 export const YOUTUBE_NAVIGATE_START_EVENT = "yt-navigate-start"
 export const YOUTUBE_NAVIGATE_FINISH_EVENT = "yt-navigate-finish"
 export const YOUTUBE_NATIVE_SUBTITLES_CLASS = ".ytp-caption-window-container"
+// Broader selector used only when hiding native captions, to cover caption
+// window variants that may render outside the main container.
+export const YOUTUBE_NATIVE_SUBTITLES_HIDE_SELECTOR = ".ytp-caption-window-container, .caption-window"
+// Default (bottom-anchored) caption windows only. Used in "keep native" mode to
+// hide normal captions while leaving custom/positioned (e.g. top) captions in place.
+export const YOUTUBE_NATIVE_SUBTITLES_BOTTOM_SELECTOR = ".ytp-caption-window-bottom"
+export const YOUTUBE_SUBTITLES_BUTTON_CLASS = ".ytp-subtitles-button"
 export const PLAYER_DATA_REQUEST_TYPE = "READ_FROG_GET_PLAYER_DATA"
 export const PLAYER_DATA_RESPONSE_TYPE = "READ_FROG_PLAYER_DATA"
 export const WAIT_TIMEDTEXT_REQUEST_TYPE = "READ_FROG_WAIT_TIMEDTEXT"

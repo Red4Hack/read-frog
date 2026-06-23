@@ -1,9 +1,12 @@
 import type { PlatformConfig } from "@/entrypoints/subtitles.content/platforms"
 import {
   DEFAULT_CONTROLS_HEIGHT,
+  YOUTUBE_NATIVE_SUBTITLES_BOTTOM_SELECTOR,
   YOUTUBE_NATIVE_SUBTITLES_CLASS,
+  YOUTUBE_NATIVE_SUBTITLES_HIDE_SELECTOR,
   YOUTUBE_NAVIGATE_FINISH_EVENT,
   YOUTUBE_NAVIGATE_START_EVENT,
+  YOUTUBE_SUBTITLES_BUTTON_CLASS,
 } from "@/utils/constants/subtitles"
 import { getYoutubeVideoId } from "@/utils/subtitles/video-id"
 
@@ -28,6 +31,9 @@ const YOUTUBE_MODE_CONFIGS: Record<YoutubeMode, PlatformConfig> = {
       playerContainer: "#movie_player.html5-video-player",
       controlsBar: "#movie_player .ytp-right-controls",
       nativeSubtitles: YOUTUBE_NATIVE_SUBTITLES_CLASS,
+      nativeSubtitlesHide: YOUTUBE_NATIVE_SUBTITLES_HIDE_SELECTOR,
+      nativeSubtitlesBottom: YOUTUBE_NATIVE_SUBTITLES_BOTTOM_SELECTOR,
+      nativeCaptionsButton: YOUTUBE_SUBTITLES_BUTTON_CLASS,
     },
     events: NAVIGATE_EVENTS,
     controls: {
@@ -52,6 +58,9 @@ const YOUTUBE_MODE_CONFIGS: Record<YoutubeMode, PlatformConfig> = {
       playerContainer: "#movie_player.html5-video-player",
       controlsBar: ".quick-actions-wrapper",
       nativeSubtitles: YOUTUBE_NATIVE_SUBTITLES_CLASS,
+      nativeSubtitlesHide: YOUTUBE_NATIVE_SUBTITLES_HIDE_SELECTOR,
+      nativeSubtitlesBottom: YOUTUBE_NATIVE_SUBTITLES_BOTTOM_SELECTOR,
+      nativeCaptionsButton: YOUTUBE_SUBTITLES_BUTTON_CLASS,
     },
     events: {},
     controls: {
@@ -81,6 +90,8 @@ const YOUTUBE_MODE_CONFIGS: Record<YoutubeMode, PlatformConfig> = {
       video: "video.html5-main-video",
       playerContainer: SHORTS_ACTIVE_PLAYER,
       nativeSubtitles: YOUTUBE_NATIVE_SUBTITLES_CLASS,
+      nativeSubtitlesHide: YOUTUBE_NATIVE_SUBTITLES_HIDE_SELECTOR,
+      nativeSubtitlesBottom: YOUTUBE_NATIVE_SUBTITLES_BOTTOM_SELECTOR,
     },
     events: {},
     controls: {

@@ -961,6 +961,14 @@ options:
     enableDescription: When enabled, a translation button will appear in the YouTube player controls. Click it to start translating subtitles.
     autoStart: Auto-Enable Subtitles
     autoStartDescription: Automatically enable subtitle translation when the video is loaded.
+    preserveCaptionColors: Preserve Caption Colors
+    preserveCaptionColorsDescription: Keep the original colors of styled captions (e.g. per-speaker colors) instead of overriding them with the configured color.
+    mode:
+      title: Subtitle Handling
+      description: Choose how Read Frog handles the video's captions. "Auto" uses the video's ready (human-made) caption in your language when it exists and translates otherwise; auto-generated captions are always translated.
+      auto: Use Official Caption When Available
+      keepOriginal: Keep Original Captions + Translation
+      translate: Always Translate
     style:
       title: Subtitle Style
       description: Customize subtitle appearance

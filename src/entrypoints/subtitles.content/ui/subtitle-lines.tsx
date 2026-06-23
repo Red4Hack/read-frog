@@ -22,17 +22,38 @@ function getTextStyles(textStyle: SubtitleTextStyle) {
 
 export function MainSubtitle({ content, className }: SubtitleLineProps) {
   const subtitle = useAtomValue(currentSubtitleAtom)
-  const { style } = useAtomValue(configFieldsAtomMap.videoSubtitles)
+  const { style, preserveCaptionColors } = useAtomValue(configFieldsAtomMap.videoSubtitles)
   const text = content ?? subtitle?.text ?? ""
+
+  // Render the original line span-by-span when the caption carries colored runs
+  // and the user opted to keep them. Falls back to the configured color.
+  const colorSegments = content == null && preserveCaptionColors ? subtitle?.segments : undefined
+  const coloredSpans = colorSegments && colorSegments.some(seg => !!seg.color)
+    ? buildColoredSpans(colorSegments)
+    : null
 
   return (
     <div
       className={cn("subtitles-main text-xl leading-tight", className)}
       style={getTextStyles(style.main)}
     >
-      {text}
+      {coloredSpans ?? text}
     </div>
   )
+}
+
+function buildColoredSpans(segments: { text: string, color?: string }[]) {
+  let offset = 0
+  return segments.map((seg) => {
+    // Stable key from the running character offset (avoids array-index keys).
+    const key = `${offset}:${seg.text}`
+    offset += seg.text.length
+    return (
+      <span key={key} style={seg.color ? { color: seg.color } : undefined}>
+        {seg.text}
+      </span>
+    )
+  })
 }
 
 export function TranslationSubtitle({ content, className }: SubtitleLineProps) {

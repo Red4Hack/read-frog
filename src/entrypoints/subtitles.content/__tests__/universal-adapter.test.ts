@@ -53,7 +53,7 @@ function attachScheduler(adapter: UniversalVideoAdapter, active: boolean) {
 describe("universalVideoAdapter", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.stubGlobal("document", { title: "Test video" })
+    vi.stubGlobal("document", { title: "Test video", getElementById: () => null })
     mocks.getLocalConfig.mockResolvedValue({
       language: {},
       providersConfig: [],
