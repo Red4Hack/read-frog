@@ -38,7 +38,7 @@ describe("spinner", () => {
     expect(document.head.querySelector("#read-frog-preset-styles")).not.toBeNull()
     expect(wrapper.lastElementChild).toBe(spinner)
     expect(spinner.className).toBe("read-frog-spinner")
-  }, 10_000)
+  })
 
   it("ensures preset styles on the containing shadow root before appending the spinner", () => {
     const host = document.createElement("div")
@@ -61,7 +61,7 @@ describe("spinner", () => {
     expect(shadow.querySelector("#read-frog-preset-styles")).not.toBeNull()
     expect(wrapper.lastElementChild).toBe(spinner)
     expect(spinner.className).toBe("read-frog-spinner")
-  }, 10_000)
+  })
 
   it("uses a thin gray spinner arc without a background ring", () => {
     const spinner = createLightweightSpinner(document)
