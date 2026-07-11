@@ -154,11 +154,13 @@ describe("youtube subtitles fetcher", () => {
   it("skips the track-hash round-trip on a cold load and uses it only with a cache", async () => {
     const playerData = {
       videoId: "test123",
-      captionTracks: [{
-        baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en",
-        languageCode: "en",
-        vssId: ".en",
-      }],
+      captionTracks: [
+        {
+          baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en",
+          languageCode: "en",
+          vssId: ".en",
+        },
+      ],
       audioCaptionTracks: [],
       device: null,
       cver: null,
@@ -169,14 +171,24 @@ describe("youtube subtitles fetcher", () => {
     }
 
     Object.defineProperty(window, "location", {
-      value: { search: "?v=test123", origin: "https://www.youtube.com", pathname: "/watch", hostname: "www.youtube.com" },
+      value: {
+        search: "?v=test123",
+        origin: "https://www.youtube.com",
+        pathname: "/watch",
+        hostname: "www.youtube.com",
+      },
       writable: true,
     })
 
     const fetcher = new YoutubeSubtitlesFetcher()
-    vi.spyOn(fetcher as any, "requestPlayerData").mockResolvedValue({ success: true, data: playerData })
+    vi.spyOn(fetcher as any, "requestPlayerData").mockResolvedValue({
+      success: true,
+      data: playerData,
+    })
     vi.spyOn(fetcher as any, "fetchWithRetry").mockResolvedValue([])
-    vi.spyOn(fetcher as any, "processRawEvents").mockResolvedValue([{ text: "hi", start: 0, end: 1 }])
+    vi.spyOn(fetcher as any, "processRawEvents").mockResolvedValue([
+      { text: "hi", start: 0, end: 1 },
+    ])
     const computeTrackHashSpy = vi.spyOn(fetcher as any, "computeTrackHash")
 
     // Cold load: nothing cached → don't pay for a cache-validation hash.

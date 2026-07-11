@@ -1,9 +1,15 @@
-import type { VideoSubtitlesMode } from "@/types/config/subtitles"
 import { deepmerge } from "deepmerge-ts"
 import { useAtom } from "jotai"
 import { HelpTooltip } from "@/components/help-tooltip"
 import { Field, FieldContent, FieldLabel } from "@/components/ui/base-ui/field"
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/base-ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/base-ui/select"
 import { Switch } from "@/components/ui/base-ui/switch"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { i18n } from "@/utils/i18n"
@@ -65,7 +71,9 @@ export function SubtitlesConfig() {
           <FieldContent className="self-center">
             <FieldLabel htmlFor="video-subtitles-preserve-caption-colors">
               {i18n.t("options.videoSubtitles.preserveCaptionColors")}
-              <HelpTooltip>{i18n.t("options.videoSubtitles.preserveCaptionColorsDescription")}</HelpTooltip>
+              <HelpTooltip>
+                {i18n.t("options.videoSubtitles.preserveCaptionColorsDescription")}
+              </HelpTooltip>
             </FieldLabel>
           </FieldContent>
           <Switch
@@ -91,11 +99,10 @@ export function SubtitlesConfig() {
           <Select
             value={videoSubtitlesConfig?.mode ?? "auto"}
             onValueChange={(value) => {
-              if (!value)
-                return
+              if (!value) return
               void setVideoSubtitlesConfig(
                 deepmerge(videoSubtitlesConfig, {
-                  mode: value as VideoSubtitlesMode,
+                  mode: value,
                 }),
               )
             }}
@@ -108,8 +115,12 @@ export function SubtitlesConfig() {
             <SelectContent>
               <SelectGroup>
                 <SelectItem value="auto">{i18n.t("options.videoSubtitles.mode.auto")}</SelectItem>
-                <SelectItem value="keepOriginal">{i18n.t("options.videoSubtitles.mode.keepOriginal")}</SelectItem>
-                <SelectItem value="translate">{i18n.t("options.videoSubtitles.mode.translate")}</SelectItem>
+                <SelectItem value="keepOriginal">
+                  {i18n.t("options.videoSubtitles.mode.keepOriginal")}
+                </SelectItem>
+                <SelectItem value="translate">
+                  {i18n.t("options.videoSubtitles.mode.translate")}
+                </SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>

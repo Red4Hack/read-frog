@@ -27,8 +27,9 @@ export function MainSubtitle({ content, className }: SubtitleLineProps) {
 
   // Render the original line span-by-span when the caption carries colored runs
   // and the user opted to keep them. Falls back to the configured color.
-  const colorSegments = content == null && preserveCaptionColors ? subtitle?.segments : undefined
-  const coloredSpans = colorSegments && colorSegments.some(seg => !!seg.color)
+  const colorSegments =
+    content === undefined && preserveCaptionColors ? subtitle?.segments : undefined
+  const coloredSpans = colorSegments?.some((seg) => !!seg.color)
     ? buildColoredSpans(colorSegments)
     : null
 
@@ -42,7 +43,7 @@ export function MainSubtitle({ content, className }: SubtitleLineProps) {
   )
 }
 
-function buildColoredSpans(segments: { text: string, color?: string }[]) {
+function buildColoredSpans(segments: { text: string; color?: string }[]) {
   let offset = 0
   return segments.map((seg) => {
     // Stable key from the running character offset (avoids array-index keys).

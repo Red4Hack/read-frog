@@ -32,7 +32,7 @@ export class NativeLiveController {
     this.reader = new YoutubeNativeCaptionReader(
       options.playerContainerSelector,
       options.nativeSubtitlesSelector,
-      cue => this.handleCue(cue),
+      (cue) => this.handleCue(cue),
     )
   }
 
@@ -69,9 +69,10 @@ export class NativeLiveController {
 
     const cached = this.translationCache.get(cue.text)
     // Show the original immediately; translation (cached or pending) fills in.
-    subtitlesStore.set(currentSubtitleAtom, cached !== undefined
-      ? { ...baseFragment, translation: cached }
-      : baseFragment)
+    subtitlesStore.set(
+      currentSubtitleAtom,
+      cached !== undefined ? { ...baseFragment, translation: cached } : baseFragment,
+    )
 
     if (cached !== undefined) {
       return

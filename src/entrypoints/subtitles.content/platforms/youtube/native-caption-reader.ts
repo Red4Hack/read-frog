@@ -131,7 +131,9 @@ function normalize(text: string): string {
 }
 
 function extractCue(container: HTMLElement): NativeCaptionCue | null {
-  const lineNodes = Array.from(container.querySelectorAll<HTMLElement>(CAPTION_VISUAL_LINE_SELECTOR))
+  const lineNodes = Array.from(
+    container.querySelectorAll<HTMLElement>(CAPTION_VISUAL_LINE_SELECTOR),
+  )
   const lines = lineNodes.length > 0 ? lineNodes : [container]
 
   const segments: SubtitleColorSegment[] = []
@@ -157,7 +159,7 @@ function extractCue(container: HTMLElement): NativeCaptionCue | null {
     }
   })
 
-  const text = normalize(segments.map(seg => seg.text).join(""))
+  const text = normalize(segments.map((seg) => seg.text).join(""))
   if (!text) {
     return null
   }

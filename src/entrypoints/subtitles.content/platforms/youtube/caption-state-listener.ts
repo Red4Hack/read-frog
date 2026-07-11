@@ -1,4 +1,7 @@
-import { YOUTUBE_NAVIGATE_FINISH_EVENT, YOUTUBE_SUBTITLES_BUTTON_CLASS } from "@/utils/constants/subtitles"
+import {
+  YOUTUBE_NAVIGATE_FINISH_EVENT,
+  YOUTUBE_SUBTITLES_BUTTON_CLASS,
+} from "@/utils/constants/subtitles"
 import { waitForElement } from "@/utils/dom/wait-for-element"
 
 type CaptionStateChangedHandler = (pressed: boolean) => void
@@ -42,7 +45,7 @@ class YoutubeCaptionStateListener {
     const attempt = ++this.bindAttempt
     const button = await waitForElement(
       this.buttonSelector,
-      element => !!element.closest(this.playerContainerSelector),
+      (element) => !!element.closest(this.playerContainerSelector),
     )
 
     if (!this.started || attempt !== this.bindAttempt || !(button instanceof HTMLElement)) {

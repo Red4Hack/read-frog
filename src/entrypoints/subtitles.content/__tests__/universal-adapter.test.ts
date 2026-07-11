@@ -178,9 +178,7 @@ describe("universalVideoAdapter", () => {
       const { adapter } = createAdapter([{ text: "hello", start: 0, end: 500 }])
 
       vi.spyOn(adapter as any, "shouldKeepNativeCaptions").mockReturnValue(true)
-      const hideSpy = vi
-        .spyOn(adapter as any, "hideNativeSubtitles")
-        .mockImplementation(() => {})
+      const hideSpy = vi.spyOn(adapter as any, "hideNativeSubtitles").mockImplementation(() => {})
 
       // No scheduler attached: processTranslatedSubtitles applies the hide and
       // returns early, isolating the native-caption handling under test.
@@ -194,15 +192,13 @@ describe("universalVideoAdapter", () => {
       const { adapter } = createAdapter([{ text: "hello", start: 0, end: 500 }])
 
       const scheduler = attachScheduler(adapter, false)
-      ;(scheduler as any).start = vi.fn()
-      ;(scheduler as any).show = vi.fn()
+      ;(scheduler as any).start = vi.fn<() => void>()
+      ;(scheduler as any).show = vi.fn<() => void>()
 
       vi.spyOn(adapter as any, "shouldKeepNativeCaptions").mockReturnValue(true)
       vi.spyOn(adapter as any, "enableNativeCaptionsForReading").mockImplementation(() => {})
       vi.spyOn(adapter as any, "startTranslation").mockResolvedValue(undefined)
-      const hideSpy = vi
-        .spyOn(adapter as any, "hideNativeSubtitles")
-        .mockImplementation(() => {})
+      const hideSpy = vi.spyOn(adapter as any, "hideNativeSubtitles").mockImplementation(() => {})
 
       ;(adapter as any).handleToggleSubtitles(true)
 

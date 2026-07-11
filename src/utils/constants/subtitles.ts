@@ -34,7 +34,8 @@ export const YOUTUBE_NAVIGATE_FINISH_EVENT = "yt-navigate-finish"
 export const YOUTUBE_NATIVE_SUBTITLES_CLASS = ".ytp-caption-window-container"
 // Broader selector used only when hiding native captions, to cover caption
 // window variants that may render outside the main container.
-export const YOUTUBE_NATIVE_SUBTITLES_HIDE_SELECTOR = ".ytp-caption-window-container, .caption-window"
+export const YOUTUBE_NATIVE_SUBTITLES_HIDE_SELECTOR =
+  ".ytp-caption-window-container, .caption-window"
 // Default (bottom-anchored) caption windows only: hides normal captions while
 // leaving custom/positioned (e.g. top) captions in place.
 export const YOUTUBE_NATIVE_SUBTITLES_BOTTOM_SELECTOR = ".ytp-caption-window-bottom"

@@ -1,6 +1,10 @@
 import type { StateData, SubtitlesFragment } from "../types"
 import { describe, expect, it } from "vitest"
-import { getEffectiveDisplayMode, hasRenderableSubtitleByMode, isAwaitingTranslation } from "../display-rules"
+import {
+  getEffectiveDisplayMode,
+  hasRenderableSubtitleByMode,
+  isAwaitingTranslation,
+} from "../display-rules"
 
 function makeSubtitle(overrides?: Partial<SubtitlesFragment>): SubtitlesFragment {
   return {

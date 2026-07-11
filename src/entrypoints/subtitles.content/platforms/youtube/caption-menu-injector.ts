@@ -8,7 +8,7 @@ const PANEL_MENU_SELECTOR = ".ytp-panel-menu"
 // Only the captions sub-panel has an "Options" link in its header — quality and
 // speed sub-panels do not. This is a locale-independent way to detect it.
 const PANEL_OPTIONS_SELECTOR = ".ytp-panel-options"
-const RADIO_ITEM_SELECTOR = ".ytp-menuitem[role=\"menuitemradio\"]"
+const RADIO_ITEM_SELECTOR = '.ytp-menuitem[role="menuitemradio"]'
 const MENU_ITEM_LABEL_SELECTOR = ".ytp-menuitem-label"
 export const CAPTION_MODE_SUFFIX_CLASS = "read-frog-caption-mode-suffix"
 
@@ -68,7 +68,7 @@ class YoutubeCaptionMenuInjector {
     const attempt = ++this.bindAttempt
     const button = await waitForElement(
       this.settingsButtonSelector,
-      element => !!element.closest(this.playerContainerSelector),
+      (element) => !!element.closest(this.playerContainerSelector),
     )
 
     if (!this.started || attempt !== this.bindAttempt || !(button instanceof HTMLElement)) {
@@ -168,8 +168,7 @@ class YoutubeCaptionMenuInjector {
         if (badge.textContent !== suffix) {
           badge.textContent = suffix
         }
-      }
-      else if (badge) {
+      } else if (badge) {
         badge.remove()
       }
     })

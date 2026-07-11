@@ -137,8 +137,7 @@ export class UniversalVideoAdapter {
         pageTitle: document.title || "",
         videoId: this.config.getVideoId?.(),
       })
-    }
-    finally {
+    } finally {
       // Releasing on the next tick covers the async aria-pressed mutation that
       // may fire when fetching enables the native CC button.
       setTimeout(() => {
@@ -152,8 +151,7 @@ export class UniversalVideoAdapter {
     this.suppressCaptionSync = true
     try {
       await this.translatedSubtitlesDownloader!.download()
-    }
-    finally {
+    } finally {
       setTimeout(() => {
         this.suppressCaptionSync = false
       }, 300)
@@ -424,8 +422,7 @@ export class UniversalVideoAdapter {
         // path when re-enabling via the CC button.
         this.enableNativeCaptionsForReading()
         this.hideNativeSubtitles("transparent")
-      }
-      else {
+      } else {
         this.hideNativeSubtitles()
       }
       void this.startTranslation(analyticsContext)
@@ -440,8 +437,7 @@ export class UniversalVideoAdapter {
   private getVideoSubtitlesMode(): "auto" | "keepOriginal" | "translate" {
     try {
       return subtitlesStore.get(configFieldsAtomMap.videoSubtitles).mode
-    }
-    catch {
+    } catch {
       return "auto"
     }
   }
@@ -471,7 +467,9 @@ export class UniversalVideoAdapter {
       return null
     }
     const player = document.querySelector(this.config.selectors.playerContainer)
-    return player?.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>(selector)
+    return (
+      player?.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>(selector)
+    )
   }
 
   private enableNativeCaptionsForReading() {
@@ -618,7 +616,8 @@ export class UniversalVideoAdapter {
       document.head.appendChild(style)
     }
 
-    const fullSelector = this.config.selectors.nativeSubtitlesHide ?? this.config.selectors.nativeSubtitles
+    const fullSelector =
+      this.config.selectors.nativeSubtitlesHide ?? this.config.selectors.nativeSubtitles
     const bottomSelector = this.config.selectors.nativeSubtitlesBottom
 
     if (mode === "bottom" && bottomSelector) {
@@ -630,8 +629,7 @@ export class UniversalVideoAdapter {
           visibility: hidden !important;
         }
       `
-    }
-    else if (mode === "transparent") {
+    } else if (mode === "transparent") {
       style.textContent = `
         ${fullSelector},
         ${fullSelector} * {
@@ -639,8 +637,7 @@ export class UniversalVideoAdapter {
           pointer-events: none !important;
         }
       `
-    }
-    else {
+    } else {
       style.textContent = `
         ${fullSelector},
         ${fullSelector} * {
@@ -726,12 +723,10 @@ export class UniversalVideoAdapter {
         if (this.shouldKeepNativeCaptions()) {
           this.showNativeSubtitles()
           this.subtitlesScheduler?.setState("idle")
-        }
-        else {
+        } else {
           this.processPassthroughSubtitles()
         }
-      }
-      else {
+      } else {
         await this.processTranslatedSubtitles()
       }
       if (analyticsContext) {
@@ -740,8 +735,7 @@ export class UniversalVideoAdapter {
           outcome: "success",
         })
       }
-    }
-    catch (error) {
+    } catch (error) {
       // Hybrid fallback: if the timedtext API path failed, read YouTube's
       // natively-rendered captions and translate them live instead of erroring.
       const startedNativeLive = await this.tryStartNativeLiveFallback()

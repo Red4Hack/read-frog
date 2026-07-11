@@ -50,12 +50,14 @@ export const youtubeTimedTextSchema = z.object({
  * json3 "pen" style entry. Only color-related fields are modelled; everything
  * else is ignored. Field names are best-effort (see pen-styles.ts).
  */
-export const youtubeTimedTextPenSchema = z.object({
-  // Foreground color as a decimal RGB integer in some responses.
-  fcRgb: z.number().optional(),
-  // Foreground color as a string in other responses.
-  fc: z.string().optional(),
-}).passthrough()
+export const youtubeTimedTextPenSchema = z
+  .object({
+    // Foreground color as a decimal RGB integer in some responses.
+    fcRgb: z.number().optional(),
+    // Foreground color as a string in other responses.
+    fc: z.string().optional(),
+  })
+  .passthrough()
 
 export const youtubeSubtitlesResponseSchema = z.object({
   events: z.array(youtubeTimedTextSchema),

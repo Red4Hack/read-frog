@@ -20,7 +20,7 @@ export function penToColor(pen: YoutubeTimedTextPen | undefined): string | undef
   }
 
   const rgbInt = pen.fcRgb
-  if (typeof rgbInt === "number" && Number.isFinite(rgbInt) && rgbInt >= 0 && rgbInt <= 0xFFFFFF) {
+  if (typeof rgbInt === "number" && Number.isFinite(rgbInt) && rgbInt >= 0 && rgbInt <= 0xffffff) {
     return `#${rgbInt.toString(16).padStart(6, "0")}`
   }
 
@@ -55,7 +55,7 @@ export function resolveSegmentColors(response: YoutubeSubtitlesResponse): Youtub
       ...event,
       segs: event.segs.map((seg) => {
         const penId = seg.pPenId
-        if (penId == null) {
+        if (penId === undefined) {
           return seg
         }
         const color = penToColor(pens[penId])

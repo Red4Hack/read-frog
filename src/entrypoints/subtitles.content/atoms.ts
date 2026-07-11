@@ -3,7 +3,11 @@ import type { StateData, SubtitlesFragment, SubtitlesState } from "@/utils/subti
 import { atom, createStore } from "jotai"
 import { configFieldsAtomMap } from "@/utils/atoms/config"
 import { DEFAULT_SUBTITLE_POSITION } from "@/utils/constants/subtitles"
-import { getEffectiveDisplayMode, hasRenderableSubtitleByMode, isAwaitingTranslation } from "@/utils/subtitles/display-rules"
+import {
+  getEffectiveDisplayMode,
+  hasRenderableSubtitleByMode,
+  isAwaitingTranslation,
+} from "@/utils/subtitles/display-rules"
 import { ROOT_VIEW } from "./ui/subtitles-settings-panel/views"
 
 export const subtitlesStore = createStore()
@@ -79,5 +83,8 @@ export const subtitlesShowContentAtom = atom((get): boolean => {
 
   if (stateData?.state === "error") return false
 
-  return hasRenderableSubtitleByMode(subtitle, getEffectiveDisplayMode(style.displayMode, mode === "keepOriginal"))
+  return hasRenderableSubtitleByMode(
+    subtitle,
+    getEffectiveDisplayMode(style.displayMode, mode === "keepOriginal"),
+  )
 })
