@@ -44,7 +44,7 @@ function sleep(ms: number): Promise<void> {
 // speech-recognition tracks are "a.pt". Auto-translated tracks aren't listed as
 // base captionTracks. We treat a track as "ready/human" only when it's clearly
 // manual, so auto-generated/translated captions still get our own translation.
-function isManualTrack(track: { kind?: string, vssId?: string }): boolean {
+function isManualTrack(track: { kind?: string; vssId?: string }): boolean {
   if (track.kind === "asr") {
     return false
   }
@@ -90,10 +90,15 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
       throw new OverlaySubtitlesError(i18n.t("subtitles.errors.videoNotFound"))
     }
 
-    const currentHash = await this.computeTrackHash()
-
-    if (currentHash && this.subtitles.length > 0 && this.cachedTrackHash === currentHash) {
-      return this.subtitles
+    // Only validate the cache against a fresh track hash when we actually have a
+    // cached transcript to reuse. On a cold load there is nothing to validate,
+    // so skipping this avoids a redundant player-data round-trip (and track
+    // selection) before tryFastFetch does the same work again.
+    if (this.subtitles.length > 0) {
+      const currentHash = await this.computeTrackHash()
+      if (currentHash && this.cachedTrackHash === currentHash) {
+        return this.subtitles
+      }
     }
 
     const fastPathResult = await this.tryFastFetch(videoId)
@@ -162,9 +167,9 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
       return false
     }
 
-    return response.data.captionTracks.some(track =>
-      isManualTrack(track)
-      && resolveLanguageCodeFromLocale(track.languageCode) === targetCode,
+    return response.data.captionTracks.some(
+      (track) =>
+        isManualTrack(track) && resolveLanguageCodeFromLocale(track.languageCode) === targetCode,
     )
   }
 
@@ -205,44 +210,26 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
   }
 
   private async tryFastFetch(videoId: string): Promise<{
-    currentHash: string | null
     track: CaptionTrack | null
     events: YoutubeTimedText[] | null
   }> {
     const response = await this.requestPlayerData(videoId)
     if (!response.success || !response.data) {
-      return {
-        currentHash: null,
-        track: null,
-        events: null,
-      }
+      return { track: null, events: null }
     }
 
     const playerData = response.data
     const track = this.selectTrack(playerData)
-    const currentHash = this.buildTrackHash(videoId, track)
 
     if (!track) {
-      return {
-        currentHash,
-        track: null,
-        events: null,
-      }
+      return { track: null, events: null }
     }
 
     try {
       const events = await this.fetchTrackEvents(track, playerData)
-      return {
-        currentHash,
-        track,
-        events,
-      }
+      return { track, events }
     } catch {
-      return {
-        currentHash,
-        track,
-        events: null,
-      }
+      return { track, events: null }
     }
   }
 
@@ -439,8 +426,7 @@ export class YoutubeSubtitlesFetcher implements SubtitlesFetcher {
         // Resolve per-segment colors from the pens table onto each segment so
         // downstream parsers can preserve colored captions.
         return resolveSegmentColors(parsed.data)
-      }
-      catch (e) {
+      } catch (e) {
         // Don't retry permanent errors (OverlaySubtitlesError)
         if (e instanceof OverlaySubtitlesError) {
           throw e

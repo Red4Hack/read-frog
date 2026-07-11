@@ -415,13 +415,15 @@ export class UniversalVideoAdapter {
       this.subtitlesScheduler?.start()
       this.subtitlesScheduler?.show()
       if (this.shouldKeepNativeCaptions()) {
-        // Keep custom/positioned (e.g. top, colored) captions visible and only
-        // overlay the translation; hide just the default bottom captions to avoid
-        // overlap. Applied here (not only in startTranslation) so it survives the
-        // resume path when re-enabling via the CC button. The passthrough case in
-        // startTranslation restores full visibility when there's nothing to add.
+        // "Keep original" renders both the original (with colors) and the
+        // translation in our overlay, so hide the native captions to avoid
+        // duplication — but only visually ("transparent"), keeping them in the
+        // DOM so the native-caption reader can still pick up the original (and
+        // its colors) when the timedtext API path falls back to live reading.
+        // Applied here (not only in startTranslation) so it survives the resume
+        // path when re-enabling via the CC button.
         this.enableNativeCaptionsForReading()
-        this.hideNativeSubtitles("bottom")
+        this.hideNativeSubtitles("transparent")
       }
       else {
         this.hideNativeSubtitles()
@@ -531,14 +533,11 @@ export class UniversalVideoAdapter {
       return true
     }
 
-    if (keepNative) {
-      // Keep custom/positioned captions visible; hide only default bottom ones.
-      this.hideNativeSubtitles("bottom")
-    }
-    else {
-      // Hide them visually but keep the DOM readable.
-      this.hideNativeSubtitles("transparent")
-    }
+    // Hide native captions visually but keep them in the DOM so the reader can
+    // still read the original text (and colors). In "keep original" mode the
+    // overlay renders the original alongside the translation, so the native
+    // captions must not also be visible.
+    this.hideNativeSubtitles("transparent")
 
     const videoContext: SubtitlesVideoContext = {
       videoTitle: document.title || "",
@@ -602,9 +601,10 @@ export class UniversalVideoAdapter {
    * - "remove": fully removes them (used when we render our own subtitles from
    *   the timedtext API).
    * - "transparent": keeps them in the DOM but invisible, so the native caption
-   *   reader can still read their text (used in the live native fallback).
+   *   reader can still read their text (used in the live native fallback and in
+   *   "keep original" mode, where the overlay renders the original itself).
    * - "bottom": hides only default bottom-anchored captions, leaving custom /
-   *   positioned (e.g. top, colored) captions in place ("keep native" mode).
+   *   positioned (e.g. top, colored) captions in place.
    */
   private hideNativeSubtitles(mode: "remove" | "transparent" | "bottom" = "remove") {
     if (this.nativeHideMode === mode) {
@@ -801,11 +801,12 @@ export class UniversalVideoAdapter {
   }
 
   private async processTranslatedSubtitles() {
-    // In "keep native" mode we render a translation overlay at the bottom, so
-    // hide only the default bottom-anchored native captions (to avoid overlap on
-    // normal videos) while leaving custom/positioned captions visible in place.
+    // In "keep original" mode we render the original (with colors) and the
+    // translation in our overlay, so hide the native captions to avoid showing
+    // the original twice. Hidden visually only, so the live-reading fallback can
+    // still access them.
     if (this.shouldKeepNativeCaptions()) {
-      this.hideNativeSubtitles("bottom")
+      this.hideNativeSubtitles("transparent")
     }
 
     const scheduler = this.subtitlesScheduler

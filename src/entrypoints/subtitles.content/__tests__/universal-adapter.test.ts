@@ -166,4 +166,48 @@ describe("universalVideoAdapter", () => {
 
     expect(downloader.dispose).toHaveBeenCalledTimes(1)
   })
+
+  describe("keep original mode", () => {
+    it("hides native captions transparently (not by removing the original) when rendering translations", async () => {
+      // Regression: in "keep original" mode the original used to be supplied by
+      // YouTube's native captions. For default bottom-anchored captions (all
+      // auto-generated/ASR tracks) the bottom captions were hidden, dropping the
+      // original. The overlay now renders the original itself, so native captions
+      // must only be hidden visually ("transparent"), never via the bottom-only
+      // hide that left the user with no original.
+      const { adapter } = createAdapter([{ text: "hello", start: 0, end: 500 }])
+
+      vi.spyOn(adapter as any, "shouldKeepNativeCaptions").mockReturnValue(true)
+      const hideSpy = vi
+        .spyOn(adapter as any, "hideNativeSubtitles")
+        .mockImplementation(() => {})
+
+      // No scheduler attached: processTranslatedSubtitles applies the hide and
+      // returns early, isolating the native-caption handling under test.
+      await (adapter as any).processTranslatedSubtitles()
+
+      expect(hideSpy).toHaveBeenCalledWith("transparent")
+      expect(hideSpy).not.toHaveBeenCalledWith("bottom")
+    })
+
+    it("hides native captions transparently when enabling on the resume path", () => {
+      const { adapter } = createAdapter([{ text: "hello", start: 0, end: 500 }])
+
+      const scheduler = attachScheduler(adapter, false)
+      ;(scheduler as any).start = vi.fn()
+      ;(scheduler as any).show = vi.fn()
+
+      vi.spyOn(adapter as any, "shouldKeepNativeCaptions").mockReturnValue(true)
+      vi.spyOn(adapter as any, "enableNativeCaptionsForReading").mockImplementation(() => {})
+      vi.spyOn(adapter as any, "startTranslation").mockResolvedValue(undefined)
+      const hideSpy = vi
+        .spyOn(adapter as any, "hideNativeSubtitles")
+        .mockImplementation(() => {})
+
+      ;(adapter as any).handleToggleSubtitles(true)
+
+      expect(hideSpy).toHaveBeenCalledWith("transparent")
+      expect(hideSpy).not.toHaveBeenCalledWith("bottom")
+    })
+  })
 })

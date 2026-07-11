@@ -142,11 +142,52 @@ describe("youtube subtitles fetcher", () => {
 
     await expect(fetcher.fetch()).resolves.toEqual([])
 
-    expect(requestPlayerDataSpy).toHaveBeenCalledTimes(2)
+    // Cold load: no cached transcript to validate, so the redundant track-hash
+    // round-trip is skipped and only tryFastFetch requests player data.
+    expect(requestPlayerDataSpy).toHaveBeenCalledTimes(1)
     expect(fetchWithRetrySpy).toHaveBeenCalledTimes(1)
     expect(processRawEventsSpy).toHaveBeenCalledTimes(1)
     expect(waitForPlayerStateSpy).not.toHaveBeenCalled()
     expect(getPlayerDataWithPotSpy).not.toHaveBeenCalled()
+  })
+
+  it("skips the track-hash round-trip on a cold load and uses it only with a cache", async () => {
+    const playerData = {
+      videoId: "test123",
+      captionTracks: [{
+        baseUrl: "https://www.youtube.com/api/timedtext?v=test123&lang=en",
+        languageCode: "en",
+        vssId: ".en",
+      }],
+      audioCaptionTracks: [],
+      device: null,
+      cver: null,
+      playerState: 1,
+      selectedTrackLanguageCode: "en",
+      selectedTrackVssId: ".en",
+      cachedTimedtextUrl: null,
+    }
+
+    Object.defineProperty(window, "location", {
+      value: { search: "?v=test123", origin: "https://www.youtube.com", pathname: "/watch", hostname: "www.youtube.com" },
+      writable: true,
+    })
+
+    const fetcher = new YoutubeSubtitlesFetcher()
+    vi.spyOn(fetcher as any, "requestPlayerData").mockResolvedValue({ success: true, data: playerData })
+    vi.spyOn(fetcher as any, "fetchWithRetry").mockResolvedValue([])
+    vi.spyOn(fetcher as any, "processRawEvents").mockResolvedValue([{ text: "hi", start: 0, end: 1 }])
+    const computeTrackHashSpy = vi.spyOn(fetcher as any, "computeTrackHash")
+
+    // Cold load: nothing cached → don't pay for a cache-validation hash.
+    await fetcher.fetch()
+    expect(computeTrackHashSpy).not.toHaveBeenCalled()
+
+    // Warm load: a cached transcript exists → validate it via the track hash.
+    await fetcher.fetch()
+    expect(computeTrackHashSpy).toHaveBeenCalledTimes(1)
+
+    fetcher.cleanup()
   })
 
   it("returns cached subtitles before attempting a fast timedtext fetch", async () => {

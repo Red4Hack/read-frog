@@ -1,6 +1,6 @@
 import type { StateData, SubtitlesFragment } from "../types"
 import { describe, expect, it } from "vitest"
-import { hasRenderableSubtitleByMode, isAwaitingTranslation } from "../display-rules"
+import { getEffectiveDisplayMode, hasRenderableSubtitleByMode, isAwaitingTranslation } from "../display-rules"
 
 function makeSubtitle(overrides?: Partial<SubtitlesFragment>): SubtitlesFragment {
   return {
@@ -10,6 +10,29 @@ function makeSubtitle(overrides?: Partial<SubtitlesFragment>): SubtitlesFragment
     ...overrides,
   }
 }
+
+describe("getEffectiveDisplayMode", () => {
+  it("returns the configured display mode when not keeping the original", () => {
+    expect(getEffectiveDisplayMode("bilingual", false)).toBe("bilingual")
+    expect(getEffectiveDisplayMode("originalOnly", false)).toBe("originalOnly")
+    expect(getEffectiveDisplayMode("translationOnly", false)).toBe("translationOnly")
+  })
+
+  it("forces bilingual in keep-original mode so the original is always shown", () => {
+    // Regression: "Keep Original Captions + Translation" used to force
+    // translationOnly and rely on YouTube's native captions to supply the
+    // original. For default bottom-anchored captions (all auto-generated/ASR
+    // tracks) those native captions are hidden, so the original disappeared.
+    expect(getEffectiveDisplayMode("translationOnly", true)).toBe("bilingual")
+    expect(getEffectiveDisplayMode("originalOnly", true)).toBe("bilingual")
+    expect(getEffectiveDisplayMode("bilingual", true)).toBe("bilingual")
+  })
+
+  it("keeps the main (original) line visible in keep-original mode", () => {
+    // subtitles-view derives `showMain` from `displayMode !== "translationOnly"`.
+    expect(getEffectiveDisplayMode("translationOnly", true)).not.toBe("translationOnly")
+  })
+})
 
 describe("hasRenderableSubtitleByMode", () => {
   it("returns false when subtitle is null", () => {
